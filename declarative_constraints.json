@@ -1,0 +1,72 @@
+{
+  "constraints": [
+    {
+      "id":"C1",  
+      "template": "AtMostOne",
+       "type": "Unary",
+      "activity": ["Create Purchase Order Item","Create Purchase Requisition Item"]
+    },
+    {
+      "id":"C2",
+      "template": "End",
+      "type": "Unary",
+      "activity": ["Clear Invoice"]
+    },
+    {
+      "id":"C3",            
+      "template": "AlternatePrecedence",
+       "type": "Binary",
+      "source": ["Create Purchase Order Item"],
+      "target": ["Receive Order Confirmation"]
+    },
+    {
+      "id":"C4",
+      "template": "AlternatePrecedence",
+      "type": "Binary",
+      "source": ["Create Purchase Order Item"],
+      "target": ["Change Price"]
+    },
+    {
+      "id":"C5",
+      "template": "AlternatePrecedence",
+      "type": "Binary",
+      "source": ["Create Purchase Order Item","Receive Order Confirmation","Change Price"],
+      "target": ["Change Quantity"]
+    },
+    {
+      "id":"C6",
+      "template": "AlternatePrecedence",
+      "type": "Binary",
+      "source": ["Change Quantity","Create Purchase Order Item","Receive Order Confirmation","Change Price"],
+      "target": ["Record Goods Receipt"]
+    },
+    {
+      "id":"C7",
+      "template": "AlternatePrecedence",
+      "type": "Binary",
+      "source": ["Change Quantity","Create Purchase Order Item","Receive Order Confirmation","Change Price"],
+      "target": ["Record Invoice Receipt"]
+    },
+    {
+      "id":"C8",
+      "template": "AlternatePrecedence",
+      "type": "Binary",
+      "source": ["Create Purchase Order Item","Receive Order Confirmation","Change Price"],
+      "target": ["Vendor creates invoice"]
+    },
+    {
+      "id":"C9",
+      "template": "AlternatePrecedence",
+      "type": "Binary",
+      "source":["Vendor creates invoice","Record Goods Receipt","Record Invoice Receipt"],
+      "target":["Remove Payment Block"] 
+    },
+    {
+      "id":"C10",
+      "template": "AlternatePrecedence",
+      "type": "Binary",
+      "source": ["Remove Payment Block","Vendor creates invoice","Record Goods Receipt","Record Invoice Receipt"],
+      "target":["Clear Invoice"]
+    }
+  ]
+}
