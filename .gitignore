@@ -40,3 +40,7 @@ Desktop.ini
 
 # Ignore all .xes files
 *.xes
+
+
+# Ignore all .csv files
+*.csv
