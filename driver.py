@@ -2,6 +2,7 @@
 import sys
 
 from load_data import load_data_function 
+from find_shapley_values import find_shapley_values_function
 
 if __name__ == "__main__":
 
@@ -42,7 +43,8 @@ if __name__ == "__main__":
         if any(constraint['id'] == selected_constraint for constraint in declarative_constraints):
             print(f"You selected constraint ID: {selected_constraint}")
             # Here you can add code to perform analysis based on the selected constraint
-            # Here I will put a logic
+            shapley_value = find_shapley_values_function(event_logs, next(constraint for constraint in declarative_constraints if constraint['id'] == selected_constraint))
+            #print(f"Shapley Value for Constraint {selected_constraint}: {shapley_value}")
         else:
             print("Invalid constraint ID. Please try again.")            
 
