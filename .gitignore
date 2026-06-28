@@ -44,3 +44,9 @@ Desktop.ini
 
 # Ignore all .csv files
 *.csv
+
+#Ignore all .png files
+*.png
+
+#Ignore all .pdf files
+*.pdf

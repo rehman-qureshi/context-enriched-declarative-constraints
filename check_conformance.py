@@ -111,12 +111,31 @@ def check_conformance_function(event_logs, constraint):
             #df_satisfied = df[df["Outcome"] == "Satisfied"].tail( len(df_violated))
             # Get random sample of "Satisfied" cases equal to the number of "Violated" cases
             df_satisfied = df[df["Outcome"] == "Satisfied"].sample(n=len(df_violated), random_state=42)
+            while True:
+                print("\nHow would you like to sample the 'Satisfied' cases to balance the dataset?")
+                print("1. Random sample of 'Satisfied' cases equal to the number of 'Violated' cases:")
+                print("2. Sample from beginning of 'Satisfied' cases equal to the number of 'Violated' cases:")
+                print("3. Sample from end of 'Satisfied' cases equal to the number of 'Violated' cases:")
+                selected_sample_type=input(f"Enter your choice (1-3): ")
+                if selected_sample_type in ["1", "2", "3"]:    
+                    if selected_sample_type == "1":
+                        df_satisfied = df[df["Outcome"] == "Satisfied"].sample(n=len(df_violated), random_state=42)
+                    elif selected_sample_type == "2":
+                        df_satisfied = df[df["Outcome"] == "Satisfied"].head(len(df_violated))
+                    elif selected_sample_type == "3":
+                        df_satisfied = df[df["Outcome"] == "Satisfied"].tail(len(df_violated))
+                else:
+                    print("Invalid choice. Please try again.")
+                    # Continue the loop to ask for input again for invalid choice
+                    continue
+                # Break the loop if a valid choice was made
+                break
         else:
             df_satisfied = df[df["Outcome"] == "Satisfied"]
         prepared_df = pd.concat([df_violated, df_satisfied])
         print("Dataframe shape after balancing:", prepared_df.shape)
 
-        build_decison_trees_function(prepared_df)
+        build_decison_trees_function(constraint['id'],prepared_df)
 
     else:
         print(f"Activity: {constraint['activity']}")

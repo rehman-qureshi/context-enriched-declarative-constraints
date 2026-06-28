@@ -192,7 +192,7 @@ class Node:
             dot.edge(str(self.node_id), str(child.node_id), label=edge_label_transform, fontsize="100")
             child.build_graphviz(dot)
 #------------------------------
-def build_decison_trees_function(prepared_df):
+def build_decison_trees_function(constraint_id,prepared_df):
     """
     This function builds decision trees based on the event logs and constraints.
     """
@@ -228,12 +228,12 @@ def build_decison_trees_function(prepared_df):
     root.build_graphviz(dot)
 
     # Export locally
-    dot.render("try-balanced-cases-random", cleanup=True)
-    print("Visualization saved as 'try-balanced-cases-random.svg'")
+    #dot.render("try-balanced-cases-random", cleanup=True)
+    #print("Visualization saved as 'try-balanced-cases-random.svg'")
     # Also export as PDF
-    dot.render("try-balanced-cases-random", format="pdf", cleanup=True)
-    print("Visualization saved as 'try-balanced-cases-random.pdf'")
+    dot.render(f"{constraint_id}-decision-tree", format="pdf", cleanup=True)
+    print(f"Visualization saved as '{constraint_id}-decision-tree.pdf'")
     # Also export as PNG
-    dot.render("try-balanced-cases-random", format="png", cleanup=True)
-    print("Visualization saved as 'try-balanced-cases-random.png'")
+    #dot.render("try-balanced-cases-random", format="png", cleanup=True)
+    #print("Visualization saved as 'try-balanced-cases-random.png'")
 
