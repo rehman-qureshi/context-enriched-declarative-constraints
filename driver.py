@@ -1,9 +1,15 @@
 
 import sys
-
 from load_data import load_data_function 
 from check_conformance import check_conformance_function
+import warnings
 
+# Ignore warnings related to rustxes when reading XES files
+warnings.filterwarnings(
+    "ignore",
+    message=r".*rustxes.*"
+)
+# Main function to load data and check conformance
 if __name__ == "__main__":
 
     if len(sys.argv) != 3:
@@ -13,19 +19,11 @@ if __name__ == "__main__":
     events_logs_path = sys.argv[1]
     declarative_constraints_path = sys.argv[2]
 
-    # Example usage
-    # events_logs_path = "BPIC19_3way_IbeforeGR_standardPO_complete.xes"
-    # declarative_constraints_path = "declarative_constraints.json"
 
     event_logs, declarative_constraints = load_data_function(events_logs_path, declarative_constraints_path)
 
-    #print("Event Logs:")
-    #print(event_logs.head())
 
-    #print("\nDeclarative Constraints:")
-    #print(declarative_constraints)
     # Display declarative constraints so that user can select which constraints to use for the analysis.
-
     if declarative_constraints:
         print("\nDeclarative Constraints:")
         for constraint in declarative_constraints:
@@ -48,6 +46,5 @@ if __name__ == "__main__":
         else:
             print("Invalid constraint ID. Please try again.")            
 
-       
 
    

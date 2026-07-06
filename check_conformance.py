@@ -1,6 +1,3 @@
-import random
-import math
-import itertools
 import pandas as pd
 from find_shapley_values import conditional_shapley_with_binning
 from build_decision_trees import build_decison_trees_function
@@ -90,27 +87,31 @@ def check_conformance_function(event_logs, constraint):
         # Drop some columns that are not relevant for the analysis
         df = df.drop(columns=['concept:name', 'time:timestamp', 'case:concept:name','case:Item Category','User','case:GR-Based Inv. Verif.','case:Goods Receipt','case:Document Type','case:Name','case:Vendor','case:Source','org:resource','case:Purch. Doc. Category name','case:Purchasing Document','case:Company'])
 
+        
         # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
         shap_values = conditional_shapley_with_binning(df)
 
+        print("\nConditional Shapley values are as follows:")
         for f,v in shap_values.items():
-            print(f, round(v,4))
+            print(f"{f}: {round(v,4)}")
 
-        # prepare the data for decision tree building
+        # Prepare the data for decision tree building
         # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
+        print("\nNow we are building the decision tree")
         print("Dataframe shape before balancing:", df.shape)
-        print("Number of cases with Outcome = No:", (df["Outcome"] == "Violated").sum())
-        print("Number of cases with Outcome = Yes:", (df["Outcome"] == "Satisfied").sum())
+        print("Number of cases with Outcome = Violated:", (df["Outcome"] == "Violated").sum())
+        print("Number of cases with Outcome = Satisfied:", (df["Outcome"] == "Satisfied").sum())
+
+        # Check if there are enough cases to build a decision tree
+        if (df["Outcome"] == "Violated").sum() == 0 or (df["Outcome"] == "Satisfied").sum() == 0:
+            print("Not enough cases to build a decision tree. Skipping decision tree building.")
+            return
+      
+
         # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
         df_violated = df[df["Outcome"] == "Violated"]
         # If there are more "Satisfied" cases than "Violated" cases, sample an equal number of "Satisfied" cases
         if len(df[df["Outcome"] == "Satisfied"]) > len(df_violated):
-            # Get the first rows of "Satisfied" cases equal to the number of "Violated" cases
-            #df_satisfied = df[df["Outcome"] == "Satisfied"].head(len(df_violated))
-            # Get the last rows of "Satisfied" cases equal to the number of "Violated" cases
-            #df_satisfied = df[df["Outcome"] == "Satisfied"].tail( len(df_violated))
-            # Get random sample of "Satisfied" cases equal to the number of "Violated" cases
-            df_satisfied = df[df["Outcome"] == "Satisfied"].sample(n=len(df_violated), random_state=42)
             while True:
                 print("\nHow would you like to sample the 'Satisfied' cases to balance the dataset?")
                 print("1. Random sample of 'Satisfied' cases equal to the number of 'Violated' cases:")
@@ -139,6 +140,7 @@ def check_conformance_function(event_logs, constraint):
 
     else:
         print(f"Activity: {constraint['activity']}")
+        # In case of Unary constraints, we can have different templates like AtMostOne, End, etc. We will handle them accordingly.
         if constraint.get("template") == "AtMostOne":
             print(f"Calculating Shapley value for {constraint['template']} constraint...")
             first_events = constraint['activity']
@@ -158,7 +160,7 @@ def check_conformance_function(event_logs, constraint):
                 lambda x: has_at_most_one(x, A_list=first_events)
             )].index
 
-            # Add outcome column with Yes for cases that satisfy AtMostOne and No for cases that violate it
+            # Add outcome column with Satisfied for cases that satisfy AtMostOne and Violated for cases that violate it
             df["Outcome"] = df["case:concept:name"].apply(lambda x: "Satisfied" if x in cases_satisfying_at_most_one else ("Violated" if x in cases_violating_at_most_one else "Unknown"))
             # Get first row for each case where the event in first_events occurs
             cases_with_first_event = set(df[df["concept:name"].isin(first_events)]["case:concept:name"].unique())
@@ -175,8 +177,52 @@ def check_conformance_function(event_logs, constraint):
             # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
             shap_values = conditional_shapley_with_binning(df)
 
+            print("\nConditional Shapley values are as follows:")
             for f,v in shap_values.items():
-                print(f, round(v,4))
+                print(f"{f}: {round(v,4)}")
+
+            # Prepare the data for decision tree building
+            # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
+            print("\nNow we are building the decision tree")
+            print("Dataframe shape before balancing:", df.shape)
+            print("Number of cases with Outcome = Violated:", (df["Outcome"] == "Violated").sum())
+            print("Number of cases with Outcome = Satisfied:", (df["Outcome"] == "Satisfied").sum())
+
+            # Check if there are enough cases to build a decision tree
+            if (df["Outcome"] == "Violated").sum() == 0 or (df["Outcome"] == "Satisfied").sum() == 0:
+                print("Not enough cases to build a decision tree. Skipping decision tree building.")
+                return
+        
+            # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
+            df_violated = df[df["Outcome"] == "Violated"]
+            # If there are more "Satisfied" cases than "Violated" cases, sample an equal number of "Satisfied" cases
+            if len(df[df["Outcome"] == "Satisfied"]) > len(df_violated):
+                while True:
+                    print("\nHow would you like to sample the 'Satisfied' cases to balance the dataset?")
+                    print("1. Random sample of 'Satisfied' cases equal to the number of 'Violated' cases:")
+                    print("2. Sample from beginning of 'Satisfied' cases equal to the number of 'Violated' cases:")
+                    print("3. Sample from end of 'Satisfied' cases equal to the number of 'Violated' cases:")
+                    selected_sample_type=input(f"Enter your choice (1-3): ")
+                    if selected_sample_type in ["1", "2", "3"]:    
+                        if selected_sample_type == "1":
+                            df_satisfied = df[df["Outcome"] == "Satisfied"].sample(n=len(df_violated), random_state=42)
+                        elif selected_sample_type == "2":
+                            df_satisfied = df[df["Outcome"] == "Satisfied"].head(len(df_violated))
+                        elif selected_sample_type == "3":
+                            df_satisfied = df[df["Outcome"] == "Satisfied"].tail(len(df_violated))
+                    else:
+                        print("Invalid choice. Please try again.")
+                        # Continue the loop to ask for input again for invalid choice
+                        continue
+                    # Break the loop if a valid choice was made
+                    break
+            else:
+                df_satisfied = df[df["Outcome"] == "Satisfied"]
+            prepared_df = pd.concat([df_violated, df_satisfied])
+            print("Dataframe shape after balancing:", prepared_df.shape)
+
+            build_decison_trees_function(constraint['id'],prepared_df)    
+        
         else:
             print(f"Calculating Shapley value for {constraint['template']} constraint...")
             first_events = constraint['activity']
@@ -195,16 +241,63 @@ def check_conformance_function(event_logs, constraint):
             cases_violating_end = grouped[~grouped.apply(
                 lambda x: has_end(x, A_list=first_events)
             )].index
-            print("Cases violating End:", len(cases_violating_end))
-            # Add outcome column with Yes for cases that satisfy End and No for cases that violate it
-            df["Outcome"] = df["case:concept:name"].apply(lambda x: "Satisfied" if x in cases_satisfying_end else ("Violated" if x in cases_violating_end else "Unknown"))
-            print("Dataframe shape:", df.shape)
             
+            # Add outcome column with Satisfied for cases that satisfy End constraint and Violated for cases that violate it
+            df["Outcome"] = df["case:concept:name"].apply(lambda x: "Satisfied" if x in cases_satisfying_end else ("Violated" if x in cases_violating_end else "Unknown"))
+            df = df.drop_duplicates(subset=['case:concept:name'])
+             
+            print("Dataframe shape:", df.shape)
+
             # Drop some columns that are not relevant for the analysis
             df = df.drop(columns=['concept:name', 'time:timestamp', 'case:concept:name','case:Item Category','User','case:GR-Based Inv. Verif.','case:Goods Receipt','case:Document Type','case:Name','case:Vendor','case:Source','org:resource','case:Purch. Doc. Category name','case:Purchasing Document','case:Company'])
+            # Unique cases with case:concept:name           
+           
 
             # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
             shap_values = conditional_shapley_with_binning(df)
 
+            print("\nConditional Shapley values are as follows:")
             for f,v in shap_values.items():
-                print(f, round(v,4))
+                print(f"{f}: {round(v,4)}")
+
+            # Prepare the data for decision tree building
+            # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
+            print("\nNow we are building the decision tree")
+            print("Dataframe shape before balancing:", df.shape)
+            print("Number of cases with Outcome = Violated:", (df["Outcome"] == "Violated").sum())
+            print("Number of cases with Outcome = Satisfied:", (df["Outcome"] == "Satisfied").sum())
+
+            # Check if there are enough cases to build a decision tree
+            if (df["Outcome"] == "Violated").sum() == 0 or (df["Outcome"] == "Satisfied").sum() == 0:
+                print("Not enough cases to build a decision tree. Skipping decision tree building.")
+                return
+            
+            # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
+            df_violated = df[df["Outcome"] == "Violated"]
+            # If there are more "Satisfied" cases than "Violated" cases, sample an equal number of "Satisfied" cases
+            if len(df[df["Outcome"] == "Satisfied"]) > len(df_violated):
+                while True:
+                    print("\nHow would you like to sample the 'Satisfied' cases to balance the dataset?")
+                    print("1. Random sample of 'Satisfied' cases equal to the number of 'Violated' cases:")
+                    print("2. Sample from beginning of 'Satisfied' cases equal to the number of 'Violated' cases:")
+                    print("3. Sample from end of 'Satisfied' cases equal to the number of 'Violated' cases:")
+                    selected_sample_type=input(f"Enter your choice (1-3): ")
+                    if selected_sample_type in ["1", "2", "3"]:    
+                        if selected_sample_type == "1":
+                            df_satisfied = df[df["Outcome"] == "Satisfied"].sample(n=len(df_violated), random_state=42)
+                        elif selected_sample_type == "2":
+                            df_satisfied = df[df["Outcome"] == "Satisfied"].head(len(df_violated))
+                        elif selected_sample_type == "3":
+                            df_satisfied = df[df["Outcome"] == "Satisfied"].tail(len(df_violated))
+                    else:
+                        print("Invalid choice. Please try again.")
+                        # Continue the loop to ask for input again for invalid choice
+                        continue
+                    # Break the loop if a valid choice was made
+                    break
+            else:
+                df_satisfied = df[df["Outcome"] == "Satisfied"]
+            prepared_df = pd.concat([df_violated, df_satisfied])
+            print("Dataframe shape after balancing:", prepared_df.shape)
+
+            build_decison_trees_function(constraint['id'],prepared_df)

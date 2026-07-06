@@ -15,7 +15,7 @@ def load_events_logs(file_path):
         pandas.DataFrame: A DataFrame containing the event logs.
     """
     # read XES file
-    """df = pm4py.read_xes("BPIC19_3way_IbeforeGR_standardPO_complete.xes")
+    df = pm4py.read_xes(file_path)
     # sort:
     # 1) by case identifier (ascending)
     # 2) by event timestamp (ascending within each case)
@@ -26,12 +26,12 @@ def load_events_logs(file_path):
 
     # if df is empty, raise an error
     if df.empty:
-        raise ValueError("The events logs dataframe is empty. Please check the input file.")""" 
+        raise ValueError("The events logs dataframe is empty. Please check the input file.")
     
     # To save processing time, we read the preprocessed CSV file instead of the XES file. The CSV file is assumed to be in the same directory as this script.
-    df = pd.read_csv("bpic19_invoice_before_gr_all_cases.csv")
+    #df = pd.read_csv("bpic19_invoice_before_gr_all_cases.csv")
 
-     # export everything to CSV
+    # export everything to CSV
     #df.to_csv("bpic19_invoice_before_gr_all_cases.csv", index=False)
 
     #print("Exported all cases to bpic19_invoice_before_gr_all_cases.csv")

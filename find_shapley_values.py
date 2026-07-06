@@ -18,7 +18,9 @@ def conditional_shapley_with_binning(
     binned_features = []
     for col in features:
         if pd.api.types.is_numeric_dtype(df[col]):# and col != "case:Item":
-            new_col = col + "_bin"
+            # If we like to add bin method with numerical data
+            #new_col = col + "_bin"
+            new_col = col
             df[new_col] = pd.qcut(df[col], q=num_bins, duplicates="drop")
             #print(f"Binned column {col} into {num_bins} bins as {new_col}")
             #print(df[[col, new_col]].head())

@@ -207,7 +207,7 @@ def build_decison_trees_function(constraint_id,prepared_df):
     # Build Decision Tree
     # -----------------------------
 
-    print("\nBuilding Decision Tree...")
+    print("\nBuilding Decision Tree, please wait...")
     root = Node(prepared_df, attributes, max_depth=5, min_samples=10)  # Adjust parameters as needed
 
     print("\nDecision Tree Structure:")
