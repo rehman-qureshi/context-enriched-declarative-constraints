@@ -1,6 +1,7 @@
 # Loading events logs from XES file and declarative constraints from JSON file
 
 import json
+from math import log
 import pm4py
 import pandas as pd
 
@@ -15,7 +16,9 @@ def load_events_logs(file_path):
         pandas.DataFrame: A DataFrame containing the event logs.
     """
     # read XES file
-    df = pm4py.read_xes(file_path)
+    LOG = pm4py.read_xes(file_path)
+    # ALWAYS convert explicitly
+    df = pm4py.convert_to_dataframe(LOG)
     # sort:
     # 1) by case identifier (ascending)
     # 2) by event timestamp (ascending within each case)
@@ -28,8 +31,10 @@ def load_events_logs(file_path):
     if df.empty:
         raise ValueError("The events logs dataframe is empty. Please check the input file.")
     
+    df.to_csv("bpic19_invoice_before_gr_all_cases.csv", index=False)
+
     # To save processing time, we read the preprocessed CSV file instead of the XES file. The CSV file is assumed to be in the same directory as this script.
-    #df = pd.read_csv("bpic19_invoice_before_gr_all_cases.csv")
+    df = pd.read_csv("bpic19_invoice_before_gr_all_cases.csv")
 
     # export everything to CSV
     #df.to_csv("bpic19_invoice_before_gr_all_cases.csv", index=False)

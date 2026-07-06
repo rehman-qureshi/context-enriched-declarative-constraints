@@ -45,6 +45,18 @@ def information_gain(parent_labels, subsets):
         weighted_entropy += (len(subset) / total) * entropy(subset)
     return parent_entropy - weighted_entropy
 
+#------------------------------
+def safe_text(x):
+    """Robust sanitizer for XES + CSV mixed data"""
+    if x is None:
+        return "UNKNOWN"
+
+    x = str(x).strip()
+
+    if x == "" or x.lower() in ["nan", "none"]:
+        return "UNKNOWN"
+
+    return html.escape(x)
 # -----------------------------
 # Decision Tree Node Class
 # -----------------------------
@@ -184,7 +196,9 @@ class Node:
             
             dot.node(str(self.node_id), label=label, fontsize="100")
 
-        for edge_label, child in self.children.items():
+        
+        for edge_label, child in self.children.items():   
+            
             # Transform edge label to be more descriptive and visually appealing
             safe_label = html.escape(str(edge_label))  # VERY IMPORTANT
 
@@ -203,10 +217,10 @@ def build_decison_trees_function(constraint_id,prepared_df):
     print("Total cases:", len(labels))
     print("Class distribution:", Counter(labels))
     print("Root Entropy H(S):", round(entropy(labels), 4))
-        # -----------------------------
+    # -----------------------------
     # Build Decision Tree
     # -----------------------------
-
+    
     print("\nBuilding Decision Tree, please wait...")
     root = Node(prepared_df, attributes, max_depth=5, min_samples=10)  # Adjust parameters as needed
 
