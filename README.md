@@ -19,7 +19,7 @@ This repository implements a Python workflow for analyzing declarative process c
 - [build_decision_trees.py](build_decision_trees.py) – Builds a decision tree and exports a visualization.
 - [declarative_constraints.json](declarative_constraints.json) – Example declarative constraints used by the workflow.
 - [sabbrev_to_full.json](sabbrev_to_full.json) – Mapping file used for activity label normalization.
-- [BPIC19_3way_IbeforeGR_standardPO_complete.xes](BPIC19_3way_IbeforeGR_standardPO_complete.xes) – Example event log used in the workflow.
+- [BPIC19_3way_IbeforeGR_standardPO_complete.xes](https://zenodo.org/records/17295283) – Example event log used in the workflow.
 - [requirements.txt](requirements.txt) – Python dependencies for the project.
 
 ### Prerequisites
