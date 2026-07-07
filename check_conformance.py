@@ -90,10 +90,13 @@ def check_conformance_function(event_logs, constraint):
         
         # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
         shap_values = conditional_shapley_with_binning(df)
-
-        print("\nConditional Shapley values are as follows:")
+        print("\nConditional Shapley values with respect to the violated case are as follows:")
+        # Global baseline for the violated case is the probability of violation without any features, which is the Outcome column being "Violated" divided by the total number of activated cases (i.e., cases that have the second event). This is calculated as follows:
+        global_baseline = len(cases_violating_alternate_precedence)/len(cases_with_second_event)
+        print(f"Global baseline for the violated case: {round(global_baseline,4)}")
         for f,v in shap_values.items():
-            print(f"{f}: {round(v,4)}")
+            contribution = (v/global_baseline)*100 if global_baseline != 0 else float('inf')  # Avoid division by zero
+            print(f"{f}: {round(v,4)}, contribution: {round(contribution,2)}%")
 
         # Prepare the data for decision tree building
         # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
@@ -177,9 +180,13 @@ def check_conformance_function(event_logs, constraint):
             # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
             shap_values = conditional_shapley_with_binning(df)
 
-            print("\nConditional Shapley values are as follows:")
+            print("\nConditional Shapley values with respect to the violated case are as follows:")
+            # Global baseline for the violated case is the probability of violation without any features, which is the number of violated cases divided by the total number of activated cases (i.e., len(grouped)). This is calculated as follows:
+            global_baseline = len(cases_violating_at_most_one)/len(grouped)
+            print(f"Global baseline for the violated case: {round(global_baseline,4)}")
             for f,v in shap_values.items():
-                print(f"{f}: {round(v,4)}")
+                contribution = (v/global_baseline)*100 if global_baseline != 0 else float('inf')  # Avoid division by zero
+                print(f"{f}: {round(v,4)}, contribution: {round(contribution,2)}%")
 
             # Prepare the data for decision tree building
             # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
@@ -256,9 +263,14 @@ def check_conformance_function(event_logs, constraint):
             # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
             shap_values = conditional_shapley_with_binning(df)
 
-            print("\nConditional Shapley values are as follows:")
+            print("\nConditional Shapley values with respect to the violated case are as follows:")
+
+             # Global baseline for the violated case is the probability of violation without any features, which is the number of violated cases divided by the total number of activated cases (i.e., len(grouped)). This is calculated as follows:
+            global_baseline = len(cases_violating_end)/len(grouped)
+            print(f"Global baseline for the violated case: {round(global_baseline,4)}")
             for f,v in shap_values.items():
-                print(f"{f}: {round(v,4)}")
+               contribution = (v/global_baseline)*100 if global_baseline != 0 else float('inf')  # Avoid division by zero
+               print(f"{f}: {round(v,4)}, contribution: {round(contribution,2)}%")
 
             # Prepare the data for decision tree building
             # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
