@@ -109,7 +109,13 @@ class Node:
                     best_subsets = subsets
                     best_thresh = None
             else:  # Numeric
-                sorted_vals = sorted(data[attr].unique())
+                #sorted_vals = sorted(data[attr].unique()) # It creates parsing issue on Adrian's machine, so I will use the following instead
+                # Use pd.to_numeric to ensure numeric conversion and handle non-numeric values
+                #errors="coerce" will convert non-numeric values to NaN, which will be dropped in the next step
+                #dropna() will remove NaN values, ensuring that we only consider valid numeric values for threshold calculation
+                sorted_vals = sorted(
+                   pd.to_numeric(data[attr], errors="coerce").dropna().unique()
+                )
                 if len(sorted_vals) <= 1:
                     continue
                 for i in range(len(sorted_vals) - 1):
@@ -201,8 +207,13 @@ class Node:
             
             # Transform edge label to be more descriptive and visually appealing
             safe_label = html.escape(str(edge_label))  # VERY IMPORTANT
+            # If the edge label is None or empty, we can assign a default value to avoid issues in Graphviz rendering
+            """if edge_label is None or str(edge_label).strip() == "":
+                safe_label = "unknown"
+            else:
+                safe_label = html.escape(str(edge_label))"""
 
-            edge_label_transform = f'< <B>{safe_label}</B> >'  # note spaces
+            edge_label_transform = f'<<B>{safe_label}</B>>'  # note spaces
             dot.edge(str(self.node_id), str(child.node_id), label=edge_label_transform, fontsize="100")
             child.build_graphviz(dot)
 #------------------------------

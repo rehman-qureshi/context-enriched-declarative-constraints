@@ -4,6 +4,7 @@ import json
 from math import log
 import pm4py
 import pandas as pd
+from io import StringIO
 
 def load_events_logs(file_path):
     """
@@ -25,16 +26,24 @@ def load_events_logs(file_path):
     df = df.sort_values(
         by=["case:concept:name", "time:timestamp"],
         ascending=[True, True]
-    )
+    ).copy()
 
     # if df is empty, raise an error
     if df.empty:
         raise ValueError("The events logs dataframe is empty. Please check the input file.")
     
-    df.to_csv("bpic19_invoice_before_gr_all_cases.csv", index=False)
+    # convert the dataframe to CSV format in memory using StringIO
+    buffer = StringIO()
+
+    df.to_csv(buffer, index=False)
+    buffer.seek(0)
+
+    df = pd.read_csv(buffer)
+    
+    #df.to_csv("bpic19_invoice_before_gr_all_cases.csv", index=False)
 
     # To save processing time, we read the preprocessed CSV file instead of the XES file. The CSV file is assumed to be in the same directory as this script.
-    df = pd.read_csv("bpic19_invoice_before_gr_all_cases.csv")
+    #df = pd.read_csv("bpic19_invoice_before_gr_all_cases.csv")
 
     # export everything to CSV
     #df.to_csv("bpic19_invoice_before_gr_all_cases.csv", index=False)
