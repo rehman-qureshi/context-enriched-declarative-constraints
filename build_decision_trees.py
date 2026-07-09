@@ -217,7 +217,7 @@ class Node:
             dot.edge(str(self.node_id), str(child.node_id), label=edge_label_transform, fontsize="100")
             child.build_graphviz(dot)
 #------------------------------
-def build_decison_trees_function(constraint_id,prepared_df):
+def build_decision_trees_function(constraint_id,prepared_df):
     """
     This function builds decision trees based on the event logs and constraints.
     """

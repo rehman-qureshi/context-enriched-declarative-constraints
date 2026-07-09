@@ -31,20 +31,32 @@ if __name__ == "__main__":
              print(f"{constraint['id']}. {constraint['template']}({{{', '.join(constraint['activity'])}}}) ")
             else:
              print(f"{constraint['id']}. {constraint['template']}({{{', '.join(constraint['source'])}}}, {{{', '.join(constraint['target'])}}}) ")
-
+    
     while True:
-        selected_constraint=input("\nEnter the ID of the constraint you want to use for analysis (or type 'exit' to quit): ")
-        if selected_constraint.lower() == 'exit':
+        print("\n1. Select a particular constraint by its ID to for anaylsis.")
+        print("2. Integrated analysis experience of most promising constraints.")
+        print("3. Exit the program.")
+        selected_option = input("\nEnter your choice (1, 2, or 3): ")
+        if selected_option == '1':
+            selected_constraint=input("\nEnter the ID of the constraint you want to use for analysis (or type 'exit' to quit): ")
+            #if selected_constraint.lower() == 'exit':
+                #print("Exiting the program.")
+                #break
+            # Check if the selected constraint ID is valid
+            if any(constraint['id'] == selected_constraint for constraint in declarative_constraints):
+                print(f"You selected constraint ID: {selected_constraint}")
+                # Here we can add code to perform analysis based on the selected constraint
+                check_conformance_function(event_logs, next(constraint for constraint in declarative_constraints if constraint['id'] == selected_constraint),selected_option)
+                #print(f"Shapley Value for Constraint {selected_constraint}: {shapley_value}")
+            else:
+                print("Invalid constraint ID. Please try again.")            
+
+        elif selected_option == '2':
+            # Here we can add code to perform integrated analysis based on the most promising constraints
+            check_conformance_function(event_logs, declarative_constraints,selected_option)
+        elif selected_option == '3':
             print("Exiting the program.")
             break
-        # Check if the selected constraint ID is valid
-        if any(constraint['id'] == selected_constraint for constraint in declarative_constraints):
-            print(f"You selected constraint ID: {selected_constraint}")
-            # Here you can add code to perform analysis based on the selected constraint
-            check_conformance_function(event_logs, next(constraint for constraint in declarative_constraints if constraint['id'] == selected_constraint))
-            #print(f"Shapley Value for Constraint {selected_constraint}: {shapley_value}")
+            #sys.exit(0)
         else:
-            print("Invalid constraint ID. Please try again.")            
-
-
-   
+            print("Invalid choice. Please enter 1, 2, or 3.")
