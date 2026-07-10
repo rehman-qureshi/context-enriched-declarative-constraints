@@ -350,11 +350,13 @@ def check_conformance_function(event_logs, constraints,selected_option):
                 cases_violating_alternate_precedence = cases_with_second_event.difference(cases_satisfying_alternate_precedence)
                 # Compute the conformance rate for the constraint
                 conformance_rate=len(cases_satisfying_alternate_precedence)/len(cases_with_second_event) if len(cases_with_second_event) > 0 else 0
-                conformance_results[constraint['id']] = conformance_rate
                 print(f"Conformance rate for constraint {constraint['id']} - {constraint['template']}: {round(conformance_rate,4)}")
                 # If conformance rate is less than 0.98, we will proceed to calculate Shapley values and build decision trees for this constraint, otherwise we will skip it.
                 if conformance_rate < 0.98:
-
+                    # Create a new entry in the conformance_results dictionary for this constraint if it doesn't exist
+                    conformance_results.setdefault(constraint["id"], {})
+                    # Save the conformance rate for this constraint in the conformance_results dictionary
+                    conformance_results[constraint['id']]["conformance_rate"] = conformance_rate
                     #Add outcome column with Yes for cases that satisfy AlternatePrecedence and No for cases that violate it
                     df["Outcome"] = df["case:concept:name"].apply(lambda x: "Satisfied" if x in cases_satisfying_alternate_precedence else ("Violated" if x in cases_violating_alternate_precedence else "Unknown"))
                     # Get cases that have the second event
@@ -377,10 +379,17 @@ def check_conformance_function(event_logs, constraints,selected_option):
                     # Global baseline for the violated case is the probability of violation without any features, which is the Outcome column being "Violated" divided by the total number of activated cases (i.e., cases that have the second event). This is calculated as follows:
                     global_baseline = len(cases_violating_alternate_precedence)/len(cases_with_second_event) if len(cases_with_second_event) > 0 else 0
                     print(f"Global baseline for the violated case: {round(global_baseline,4)}")
+                    contribution_dict = {}
                     for f,v in shap_values.items():
                         contribution = (v/global_baseline)*100 if global_baseline != 0 else float('inf')  # Avoid division by zero
                         print(f"{f}: {round(v,4)}, contribution: {round(contribution,2)}%")
+                        # Store the contribution in the dictionary for later use
+                        contribution_dict[f] = round(contribution,2)
 
+                    # Store the Shapley values and contributions in the conformance_results dictionary for this constraint
+                    conformance_results[constraint['id']]["shapley_contributions"]=contribution_dict
+                    # Reset the contribution_dict for the next constraint
+                    contribution_dict = {}
                     # Prepare the data for decision tree building
                     # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
                     print("\nNow we are building the decision tree")
@@ -433,57 +442,73 @@ def check_conformance_function(event_logs, constraints,selected_option):
                     cases_violating_at_most_one = grouped[~grouped.apply(
                         lambda x: has_at_most_one(x, A_list=first_events)
                     )].index
+                    
+                    # Compute the conformance rate for the constraint
+                    conformance_rate=len(cases_satisfying_at_most_one)/len(grouped) if len(grouped) > 0 else 0
+                    print(f"Conformance rate for constraint {constraint['id']} - {constraint['template']}: {round(conformance_rate,4)}")
+                    # If conformance rate is less than 0.98, we will proceed to calculate
+                    if conformance_rate < 0.98:
+                        # Create a new entry in the conformance_results dictionary for this constraint if it doesn't exist 
+                        conformance_results.setdefault(constraint["id"], {})
+                        # Save the conformance rate for this constraint in the conformance_results dictionary
+                        conformance_results[constraint['id']]["conformance_rate"] = conformance_rate
+                        # Add outcome column with Satisfied for cases that satisfy AtMostOne and Violated for cases that violate it
+                        df["Outcome"] = df["case:concept:name"].apply(lambda x: "Satisfied" if x in cases_satisfying_at_most_one else ("Violated" if x in cases_violating_at_most_one else "Unknown"))
+                        # Get first row for each case where the event in first_events occurs
+                        cases_with_first_event = set(df[df["concept:name"].isin(first_events)]["case:concept:name"].unique())
+                        df = (
+                            df[df["case:concept:name"].isin(cases_with_first_event) & df["concept:name"].isin(first_events)]
+                            .groupby("case:concept:name", as_index=False)
+                            .head(1)
+                        )
+                        print("Dataframe shape:", df.shape)
+                        # Drop some columns that are not relevant for the analysis
+                        df = df.drop(columns=['concept:name', 'time:timestamp', 'case:concept:name','case:Item Category','User','case:GR-Based Inv. Verif.','case:Goods Receipt','case:Document Type','case:Name','case:Vendor','case:Source','org:resource','case:Purch. Doc. Category name','case:Purchasing Document','case:Company'])
+                        # Display the first few rows of the DataFrame to verify the structure before calculating Shapley values
+                    
+                        # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
+                        shap_values = conditional_shapley_with_binning(df)
 
-                    # Add outcome column with Satisfied for cases that satisfy AtMostOne and Violated for cases that violate it
-                    df["Outcome"] = df["case:concept:name"].apply(lambda x: "Satisfied" if x in cases_satisfying_at_most_one else ("Violated" if x in cases_violating_at_most_one else "Unknown"))
-                    # Get first row for each case where the event in first_events occurs
-                    cases_with_first_event = set(df[df["concept:name"].isin(first_events)]["case:concept:name"].unique())
-                    df = (
-                        df[df["case:concept:name"].isin(cases_with_first_event) & df["concept:name"].isin(first_events)]
-                        .groupby("case:concept:name", as_index=False)
-                        .head(1)
-                    )
-                    print("Dataframe shape:", df.shape)
-                    # Drop some columns that are not relevant for the analysis
-                    df = df.drop(columns=['concept:name', 'time:timestamp', 'case:concept:name','case:Item Category','User','case:GR-Based Inv. Verif.','case:Goods Receipt','case:Document Type','case:Name','case:Vendor','case:Source','org:resource','case:Purch. Doc. Category name','case:Purchasing Document','case:Company'])
-                    # Display the first few rows of the DataFrame to verify the structure before calculating Shapley values
-                
-                    # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
-                    shap_values = conditional_shapley_with_binning(df)
+                        print("\nConditional Shapley values with respect to the violated case are as follows:")
+                        # Global baseline for the violated case is the probability of violation without any features, which is the number of violated cases divided by the total number of activated cases (i.e., len(grouped)). This is calculated as follows:
+                        global_baseline = len(cases_violating_at_most_one)/len(grouped) if len(grouped) > 0 else 0
+                        print(f"Global baseline for the violated case: {round(global_baseline,4)}")
+                        contribution_dict = {}
+                        for f,v in shap_values.items():
+                            contribution = (v/global_baseline)*100 if global_baseline != 0 else float('inf')  # Avoid division by zero
+                            print(f"{f}: {round(v,4)}, contribution: {round(contribution,2)}%")
+                            # Store the contribution in the dictionary for later use
+                            contribution_dict[f] = contribution
+                            
+                        # Store the Shapley values and contributions in the conformance_results dictionary for this constraint
+                        conformance_results[constraint['id']]["shapley_contributions"]=contribution_dict
+                        # Reset the contribution_dict for the next constraint
+                        contribution_dict = {}
+                        # Prepare the data for decision tree building
+                        # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
+                        print("\nNow we are building the decision tree")
+                        print("Dataframe shape before balancing:", df.shape)
+                        print("Number of cases with Outcome = Violated:", (df["Outcome"] == "Violated").sum())
+                        print("Number of cases with Outcome = Satisfied:", (df["Outcome"] == "Satisfied").sum())
 
-                    print("\nConditional Shapley values with respect to the violated case are as follows:")
-                    # Global baseline for the violated case is the probability of violation without any features, which is the number of violated cases divided by the total number of activated cases (i.e., len(grouped)). This is calculated as follows:
-                    global_baseline = len(cases_violating_at_most_one)/len(grouped) if len(grouped) > 0 else 0
-                    print(f"Global baseline for the violated case: {round(global_baseline,4)}")
-                    for f,v in shap_values.items():
-                        contribution = (v/global_baseline)*100 if global_baseline != 0 else float('inf')  # Avoid division by zero
-                        print(f"{f}: {round(v,4)}, contribution: {round(contribution,2)}%")
+                        # Check if there are enough cases to build a decision tree
+                        if (df["Outcome"] == "Violated").sum() == 0 or (df["Outcome"] == "Satisfied").sum() == 0:
+                            print("Not enough cases to build a decision tree. Skipping decision tree building.")
+                            continue  # Skip to the next constraint if there are not enough cases
+                    
+                        # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
+                        df_violated = df[df["Outcome"] == "Violated"]
+                        # If there are more "Satisfied" cases than "Violated" cases, sample an equal number of "Satisfied" cases
+                        if len(df[df["Outcome"] == "Satisfied"]) > len(df_violated):
+                            # Random sample is selected for integrated analysis, so we will sample an equal number of "Satisfied" cases to match the number of "Violated" cases
+                            print("Random sample is selected for integrated analysis, so we will sample an equal number of 'Satisfied' cases to match the number of 'Violated' cases.")
+                            df_satisfied = df[df["Outcome"] == "Satisfied"].sample(n=len(df_violated), random_state=42)                
+                        else:
+                            df_satisfied = df[df["Outcome"] == "Satisfied"]
+                        prepared_df = pd.concat([df_violated, df_satisfied])
+                        print("Dataframe shape after balancing:", prepared_df.shape)
 
-                    # Prepare the data for decision tree building
-                    # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
-                    print("\nNow we are building the decision tree")
-                    print("Dataframe shape before balancing:", df.shape)
-                    print("Number of cases with Outcome = Violated:", (df["Outcome"] == "Violated").sum())
-                    print("Number of cases with Outcome = Satisfied:", (df["Outcome"] == "Satisfied").sum())
-
-                    # Check if there are enough cases to build a decision tree
-                    if (df["Outcome"] == "Violated").sum() == 0 or (df["Outcome"] == "Satisfied").sum() == 0:
-                        print("Not enough cases to build a decision tree. Skipping decision tree building.")
-                        continue  # Skip to the next constraint if there are not enough cases
-                
-                    # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
-                    df_violated = df[df["Outcome"] == "Violated"]
-                    # If there are more "Satisfied" cases than "Violated" cases, sample an equal number of "Satisfied" cases
-                    if len(df[df["Outcome"] == "Satisfied"]) > len(df_violated):
-                        # Random sample is selected for integrated analysis, so we will sample an equal number of "Satisfied" cases to match the number of "Violated" cases
-                        print("Random sample is selected for integrated analysis, so we will sample an equal number of 'Satisfied' cases to match the number of 'Violated' cases.")
-                        df_satisfied = df[df["Outcome"] == "Satisfied"].sample(n=len(df_violated), random_state=42)                
-                    else:
-                        df_satisfied = df[df["Outcome"] == "Satisfied"]
-                    prepared_df = pd.concat([df_violated, df_satisfied])
-                    print("Dataframe shape after balancing:", prepared_df.shape)
-
-                    build_decision_trees_function(constraint['id'],prepared_df)    
+                        build_decision_trees_function(constraint['id'],prepared_df)    
                 
                 else:
                     print(f"Calculating Shapley value for {constraint['template']} constraint...")
@@ -504,74 +529,99 @@ def check_conformance_function(event_logs, constraints,selected_option):
                         lambda x: has_end(x, A_list=first_events)
                     )].index
                     
-                    # Add outcome column with Satisfied for cases that satisfy End constraint and Violated for cases that violate it
-                    df["Outcome"] = df["case:concept:name"].apply(lambda x: "Satisfied" if x in cases_satisfying_end else ("Violated" if x in cases_violating_end else "Unknown"))
-                    df = df.drop_duplicates(subset=['case:concept:name'])
+                    # Compute the conformance rate for the constraint
+                    conformance_rate=len(cases_satisfying_end)/len(grouped) if len(grouped) > 0 else 0
+                    print(f"Conformance rate for constraint {constraint['id']} - {constraint['template']}: {round(conformance_rate,4)}")
+                    # If conformance rate is less than 0.98, we will proceed to calculate
+                    if conformance_rate < 0.98:
+                        # Create a new dictionary for this constraint if it doesn't exist yet
+                        conformance_results.setdefault(constraint["id"], {})
+                        # Save the conformance rate for this constraint in the conformance_results dictionary
+                        conformance_results[constraint['id']]['conformance_rate'] = conformance_rate
+                        # Add outcome column with Satisfied for cases that satisfy End constraint and Violated for cases that violate it
+                        df["Outcome"] = df["case:concept:name"].apply(lambda x: "Satisfied" if x in cases_satisfying_end else ("Violated" if x in cases_violating_end else "Unknown"))
+                        df = df.drop_duplicates(subset=['case:concept:name'])
+                        
+                        print("Dataframe shape:", df.shape)
+
+                        # Drop some columns that are not relevant for the analysis
+                        df = df.drop(columns=['concept:name', 'time:timestamp', 'case:concept:name','case:Item Category','User','case:GR-Based Inv. Verif.','case:Goods Receipt','case:Document Type','case:Name','case:Vendor','case:Source','org:resource','case:Purch. Doc. Category name','case:Purchasing Document','case:Company'])
+                        # Unique cases with case:concept:name           
                     
-                    print("Dataframe shape:", df.shape)
+                        # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
+                        shap_values = conditional_shapley_with_binning(df)
 
-                    # Drop some columns that are not relevant for the analysis
-                    df = df.drop(columns=['concept:name', 'time:timestamp', 'case:concept:name','case:Item Category','User','case:GR-Based Inv. Verif.','case:Goods Receipt','case:Document Type','case:Name','case:Vendor','case:Source','org:resource','case:Purch. Doc. Category name','case:Purchasing Document','case:Company'])
-                    # Unique cases with case:concept:name           
-                
-                    # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
-                    shap_values = conditional_shapley_with_binning(df)
+                        print("\nConditional Shapley values with respect to the violated case are as follows:")
 
-                    print("\nConditional Shapley values with respect to the violated case are as follows:")
+                        # Global baseline for the violated case is the probability of violation without any features, which is the number of violated cases divided by the total number of activated cases (i.e., len(grouped)). This is calculated as follows:
+                        global_baseline = len(cases_violating_end)/len(grouped)
+                        print(f"Global baseline for the violated case: {round(global_baseline,4)}")
+                        contribution_dict = {}
+                        for f,v in shap_values.items():
+                            contribution = (v/global_baseline)*100 if global_baseline != 0 else float('inf')  # Avoid division by zero
+                            print(f"{f}: {round(v,4)}, contribution: {round(contribution,2)}%")
+                            # Store the contribution in the dictionary for later use
+                            contribution_dict[f] = contribution
 
-                    # Global baseline for the violated case is the probability of violation without any features, which is the number of violated cases divided by the total number of activated cases (i.e., len(grouped)). This is calculated as follows:
-                    global_baseline = len(cases_violating_end)/len(grouped)
-                    print(f"Global baseline for the violated case: {round(global_baseline,4)}")
-                    for f,v in shap_values.items():
-                        contribution = (v/global_baseline)*100 if global_baseline != 0 else float('inf')  # Avoid division by zero
-                        print(f"{f}: {round(v,4)}, contribution: {round(contribution,2)}%")
+                        # Store the Shapley values and contributions in the conformance_results dictionary for this constraint
+                        # Create a new dictionary for this constraint if it doesn't exist yet
+                        conformance_results.setdefault(constraint["id"], {})
+                        conformance_results[constraint['id']]["shapley_contributions"]=contribution_dict
+                        # Reset the contribution_dict for the next constraint
+                        contribution_dict = {}
+                        # Prepare the data for decision tree building
+                        # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
+                        print("\nNow we are building the decision tree")
+                        print("Dataframe shape before balancing:", df.shape)
+                        print("Number of cases with Outcome = Violated:", (df["Outcome"] == "Violated").sum())
+                        print("Number of cases with Outcome = Satisfied:", (df["Outcome"] == "Satisfied").sum())
 
-                    # Prepare the data for decision tree building
-                    # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
-                    print("\nNow we are building the decision tree")
-                    print("Dataframe shape before balancing:", df.shape)
-                    print("Number of cases with Outcome = Violated:", (df["Outcome"] == "Violated").sum())
-                    print("Number of cases with Outcome = Satisfied:", (df["Outcome"] == "Satisfied").sum())
+                        # Check if there are enough cases to build a decision tree
+                        if (df["Outcome"] == "Violated").sum() == 0 or (df["Outcome"] == "Satisfied").sum() == 0:
+                            print("Not enough cases to build a decision tree. Skipping decision tree building.")
+                            continue # Skip to the next constraint if there are not enough cases
+                        
+                        # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
+                        df_violated = df[df["Outcome"] == "Violated"]
+                        # If there are more "Satisfied" cases than "Violated" cases, sample an equal number of "Satisfied" cases
+                        if len(df[df["Outcome"] == "Satisfied"]) > len(df_violated):
+                            print("Random sample is selected for integrated analysis, so we will sample an equal number of 'Satisfied' cases to match the number of 'Violated' cases.")
+                            df_satisfied = df[df["Outcome"] == "Satisfied"].sample(n=len(df_violated), random_state=42)
+                        else:
+                            df_satisfied = df[df["Outcome"] == "Satisfied"]
+                        prepared_df = pd.concat([df_violated, df_satisfied])
+                        print("Dataframe shape after balancing:", prepared_df.shape)
 
-                    # Check if there are enough cases to build a decision tree
-                    if (df["Outcome"] == "Violated").sum() == 0 or (df["Outcome"] == "Satisfied").sum() == 0:
-                        print("Not enough cases to build a decision tree. Skipping decision tree building.")
-                        continue # Skip to the next constraint if there are not enough cases
-                    
-                    # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
-                    df_violated = df[df["Outcome"] == "Violated"]
-                    # If there are more "Satisfied" cases than "Violated" cases, sample an equal number of "Satisfied" cases
-                    if len(df[df["Outcome"] == "Satisfied"]) > len(df_violated):
-                        print("Random sample is selected for integrated analysis, so we will sample an equal number of 'Satisfied' cases to match the number of 'Violated' cases.")
-                        df_satisfied = df[df["Outcome"] == "Satisfied"].sample(n=len(df_violated), random_state=42)
-                    else:
-                        df_satisfied = df[df["Outcome"] == "Satisfied"]
-                    prepared_df = pd.concat([df_violated, df_satisfied])
-                    print("Dataframe shape after balancing:", prepared_df.shape)
-
-                    build_decision_trees_function(constraint['id'],prepared_df)
+                        build_decision_trees_function(constraint['id'],prepared_df)
 
 
         print("\nIntegrated analysis experience of most promising constraints is completed.")
         print("We compute the Shapley values and build decision trees for constraints with conformance rate less than 0.98, and skip those with conformance rate >= 0.98.")
         # Rank the constraints based from the lowest to the highest conformance rate
-        ranked_constraints = sorted(conformance_results.items(), key=lambda x: x[1])
+        ranked_constraints = sorted(conformance_results.items(), key=lambda x: x[1]['conformance_rate'])
         print("Constraints ranked from lowest to highest conformance rate:")
         for constraint_id, conformance_rate in ranked_constraints:
             # We consider a conformance rate of less than 0.98 as a threshold for further analysis, so we will only print those constraints that have a conformance rate below this threshold.
-            if conformance_rate < 0.98:
+            if conformance_rate['conformance_rate'] < 0.98:
                 # find constraint from constraints list using constraint_id
                 constraint = next((c for c in constraints if c['id'] == constraint_id), None)
                 if constraint:
                     if constraint["type"] == "Binary":
                         #print(f"{constraint_id}: {constraint['template']} (Source: {constraint['source']}, Target: {constraint['target']}): {round(conformance_rate,4)}")
                         # \033[1m {variable} \003[0m is used to make the text bold in the terminal output
-                         print(f"{constraint_id}. {constraint['template']}({{{', '.join(constraint['source'])}}}, {{{', '.join(constraint['target'])}}}): \033[1m{round(conformance_rate,4)}\033[0m")
+                         print(f"{constraint_id}. {constraint['template']}({{{', '.join(constraint['source'])}}}, {{{', '.join(constraint['target'])}}}): \033[1m{round(conformance_rate['conformance_rate'],4)}\033[0m")
+                         # Display the Shapley contributions for this constraint
+                         print(f"Shapley contributions for constraint {constraint_id}:")
+                         for f, contribution in conformance_rate['shapley_contributions'].items():
+                             print(f"  {f}: {round(contribution,2)}%")                                                
                     else:
                         # For Unary constraints, we can have different templates like AtMostOne, End, etc. We will handle them accordingly.
                         #print(f"{constraint_id}: {constraint['template']} (Activity: {constraint['activity']}): {round(conformance_rate,4)}")
-                        print(f"{constraint['id']}. {constraint['template']}({{{', '.join(constraint['activity'])}}}): \033[1m{round(conformance_rate,4)}\033[0m")
-
+                        print(f"{constraint['id']}. {constraint['template']}({{{', '.join(constraint['activity'])}}}): \033[1m{round(conformance_rate['conformance_rate'],4)}\033[0m")
+                        # Display the Shapley contributions for this constraint
+                        print(f"Shapley contributions towards violated case for constraint {constraint_id}:")
+                        for f, contribution in conformance_rate['shapley_contributions'].items():
+                            print(f"  {f}: {round(contribution,2)}%")
     else:
         print("Wrong option selected.") # Not possible to reach here because of the input validation in driver.py
 

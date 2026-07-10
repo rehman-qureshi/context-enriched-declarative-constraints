@@ -38,7 +38,7 @@ if __name__ == "__main__":
         print("3. Exit the program.")
         selected_option = input("\nEnter your choice (1, 2, or 3): ")
         if selected_option == '1':
-            selected_constraint=input("\nEnter the ID of the constraint you want to use for analysis (or type 'exit' to quit): ")
+            selected_constraint=input("\nEnter the ID of the constraint you want to use for analysis: ")
             #if selected_constraint.lower() == 'exit':
                 #print("Exiting the program.")
                 #break
@@ -57,6 +57,5 @@ if __name__ == "__main__":
         elif selected_option == '3':
             print("Exiting the program.")
             break
-            #sys.exit(0)
         else:
             print("Invalid choice. Please enter 1, 2, or 3.")
