@@ -301,16 +301,6 @@ def build_decision_trees_function(constraint_id,prepared_df):
 
     activation_conditions = [format_path_as_condition(path) for path in unique_paths]
 
-    """if activation_conditions:
-        print(f"\nActivation conditions ({len(activation_conditions)}):")
-        # Add a counter to enumerate the activation conditions for better readability
-        for idx, condition in enumerate(activation_conditions, start=1):
-            print(f"{idx}. {condition}")
-        #for condition in activation_conditions:
-            #print(f" - {condition}")
-    else:
-        activation_conditions = [f"No satisfied leaf found for constraint {constraint_id}"]"""
-
     # Return the activation conditions for further use in the conformance analysis
     return activation_conditions
     
