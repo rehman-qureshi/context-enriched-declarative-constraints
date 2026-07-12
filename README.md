@@ -63,7 +63,11 @@ Example:
 python driver.py BPIC19_3way_IbeforeGR_standardPO_complete.xes declarative_constraints.json
 ```
 
-After startup, the program prints the available constraints and prompts you to enter the ID of the constraint you want to analyze.
+After startup, the program offers three options:
+
+Analyze a single selected constraint by ID.
+Run an integrated analysis over multiple constraints.
+Exit the program.
 
 ## Notes
 
