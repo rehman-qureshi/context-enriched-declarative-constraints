@@ -65,9 +65,9 @@ python driver.py BPIC19_3way_IbeforeGR_standardPO_complete.xes declarative_const
 
 After startup, the program offers three options:
 
-Analyze a single selected constraint by ID.
-Run an integrated analysis over multiple constraints.
-Exit the program.
+- Analyze a single selected constraint by ID.
+- Run an integrated analysis over multiple constraints.
+- Exit the program.
 
 ## Notes
 
