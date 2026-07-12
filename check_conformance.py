@@ -1,3 +1,5 @@
+import csv
+from datetime import datetime
 import pandas as pd
 from find_shapley_values import conditional_shapley_with_binning
 from build_decision_trees import build_decision_trees_function
@@ -143,7 +145,16 @@ def check_conformance_function(event_logs, constraints,selected_option):
                 prepared_df = pd.concat([df_violated, df_satisfied])
                 print("Dataframe shape after balancing:", prepared_df.shape)
 
-                build_decision_trees_function(constraint['id'],prepared_df)
+                # Initialize the activation_conditions variable to store the result of decision tree building
+                activation_conditions = None
+                activation_conditions = build_decision_trees_function(constraint['id'],prepared_df)
+                if activation_conditions:
+                    print(f"\nActivation conditions ({len(activation_conditions)}):")
+                    # Add a counter to enumerate the activation conditions for better readability
+                    for idx, condition in enumerate(activation_conditions, start=1):
+                        print(f"{idx}. {condition}")
+                else:
+                    activation_conditions = [f"No satisfied leaf found for constraint {constraint_id}"]
 
             # In case of Unary constraints, we can have different templates like AtMostOne, End, etc. We will handle them accordingly.
             else:
@@ -233,7 +244,16 @@ def check_conformance_function(event_logs, constraints,selected_option):
                     prepared_df = pd.concat([df_violated, df_satisfied])
                     print("Dataframe shape after balancing:", prepared_df.shape)
 
-                    build_decision_trees_function(constraint['id'],prepared_df)    
+                    # Initialize the activation_conditions variable to store the result of decision tree building
+                    activation_conditions = None
+                    activation_conditions = build_decision_trees_function(constraint['id'],prepared_df)
+                    if activation_conditions:
+                        print(f"\nActivation conditions ({len(activation_conditions)}):")
+                        # Add a counter to enumerate the activation conditions for better readability
+                        for idx, condition in enumerate(activation_conditions, start=1):
+                            print(f"{idx}. {condition}")
+                    else:
+                        activation_conditions = [f"No satisfied leaf found for constraint {constraint_id}"]
                 
                 else:
                     print(f"Calculating Shapley value for {constraint['template']} constraint...")
@@ -261,8 +281,7 @@ def check_conformance_function(event_logs, constraints,selected_option):
                     print("Dataframe shape:", df.shape)
 
                     # Drop some columns that are not relevant for the analysis
-                    df = df.drop(columns=['concept:name', 'time:timestamp', 'case:concept:name','case:Item Category','User','case:GR-Based Inv. Verif.','case:Goods Receipt','case:Document Type','case:Name','case:Vendor','case:Source','org:resource','case:Purch. Doc. Category name','case:Purchasing Document','case:Company'])
-                    # Unique cases with case:concept:name           
+                    df = df.drop(columns=['concept:name', 'time:timestamp', 'case:concept:name','case:Item Category','User','case:GR-Based Inv. Verif.','case:Goods Receipt','case:Document Type','case:Name','case:Vendor','case:Source','org:resource','case:Purch. Doc. Category name','case:Purchasing Document','case:Company'])    
                 
 
                     # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
@@ -316,8 +335,16 @@ def check_conformance_function(event_logs, constraints,selected_option):
                         df_satisfied = df[df["Outcome"] == "Satisfied"]
                     prepared_df = pd.concat([df_violated, df_satisfied])
                     print("Dataframe shape after balancing:", prepared_df.shape)
-
-                    build_decision_trees_function(constraint['id'],prepared_df)
+                    # Initialize the activation_condition variable to store the result of decision tree building
+                    activation_conditions = None
+                    activation_conditions = build_decision_trees_function(constraint['id'],prepared_df)
+                    if activation_conditions:
+                        print(f"\nActivation conditions ({len(activation_conditions)}):")
+                        # Add a counter to enumerate the activation conditions for better readability
+                        for idx, condition in enumerate(activation_conditions, start=1):
+                            print(f"{idx}. {condition}")
+                    else:
+                        activation_conditions = [f"No satisfied leaf found for constraint {constraint_id}"]
     
     elif selected_option == '2':
         print("\nIntegrated analysis experience on the most promising constraints is started.")
@@ -414,7 +441,8 @@ def check_conformance_function(event_logs, constraints,selected_option):
                     prepared_df = pd.concat([df_violated, df_satisfied])
                     print("Dataframe shape after balancing:", prepared_df.shape)
 
-                    build_decision_trees_function(constraint['id'],prepared_df)
+                    # Build decision trees for this constraint and store the activation condition in the conformance_results dictionary
+                    conformance_results[constraint['id']]["activation_conditions"] = build_decision_trees_function(constraint['id'],prepared_df)
                 
                 else:
                     print(f"Conformance rate for constraint {constraint['id']} - {constraint['template']}: {round(conformance_rate,4)}")
@@ -508,7 +536,8 @@ def check_conformance_function(event_logs, constraints,selected_option):
                         prepared_df = pd.concat([df_violated, df_satisfied])
                         print("Dataframe shape after balancing:", prepared_df.shape)
 
-                        build_decision_trees_function(constraint['id'],prepared_df)    
+                        # Build decision trees for this constraint and store the activation condition in the conformance_results dictionary
+                        conformance_results[constraint['id']]["activation_conditions"] = build_decision_trees_function(constraint['id'],prepared_df) 
                 
                 else:
                     print(f"Calculating Shapley value for {constraint['template']} constraint...")
@@ -591,9 +620,8 @@ def check_conformance_function(event_logs, constraints,selected_option):
                             df_satisfied = df[df["Outcome"] == "Satisfied"]
                         prepared_df = pd.concat([df_violated, df_satisfied])
                         print("Dataframe shape after balancing:", prepared_df.shape)
-
-                        build_decision_trees_function(constraint['id'],prepared_df)
-
+                        # Build decision trees for this constraint and store the activation condition in the conformance_results dictionary
+                        conformance_results[constraint['id']]["activation_conditions"] = build_decision_trees_function(constraint['id'],prepared_df)
 
         print("\nIntegrated analysis experience of most promising constraints is completed.")
         print("We compute the Shapley values and build decision trees for constraints with conformance rate less than 0.98, and skip those with conformance rate >= 0.98.")
@@ -610,18 +638,63 @@ def check_conformance_function(event_logs, constraints,selected_option):
                         #print(f"{constraint_id}: {constraint['template']} (Source: {constraint['source']}, Target: {constraint['target']}): {round(conformance_rate,4)}")
                         # \033[1m {variable} \003[0m is used to make the text bold in the terminal output
                          print(f"{constraint_id}. {constraint['template']}({{{', '.join(constraint['source'])}}}, {{{', '.join(constraint['target'])}}}): \033[1m{round(conformance_rate['conformance_rate'],4)}\033[0m")
+                         # Display the activation conditions for this constraint
+                         activation_conditions = conformance_rate.get('activation_conditions', [])
+                         if activation_conditions:
+                            print(f"\nActivation conditions for constraint {constraint_id}:")
+                            for idx, condition in enumerate(activation_conditions, start=1):
+                                 print(f"{idx}. {condition}")
+                         else:
+                             print(f"No activation conditions found for constraint {constraint_id}.")
                          # Display the Shapley contributions for this constraint
-                         print(f"Shapley contributions for constraint {constraint_id}:")
+                         print(f"\nShapley contributions towards violated cases for constraint {constraint_id}:")
                          for f, contribution in conformance_rate['shapley_contributions'].items():
                              print(f"  {f}: {round(contribution,2)}%")                                                
                     else:
                         # For Unary constraints, we can have different templates like AtMostOne, End, etc. We will handle them accordingly.
                         #print(f"{constraint_id}: {constraint['template']} (Activity: {constraint['activity']}): {round(conformance_rate,4)}")
                         print(f"{constraint['id']}. {constraint['template']}({{{', '.join(constraint['activity'])}}}): \033[1m{round(conformance_rate['conformance_rate'],4)}\033[0m")
+                        # Display the activation conditions for this constraint
+                        activation_conditions = conformance_rate.get('activation_conditions', [])
+                        if activation_conditions:
+                            print(f"\nActivation conditions for constraint {constraint_id}:")
+                            for idx, condition in enumerate(activation_conditions, start=1):
+                                print(f"{idx}. {condition}")
+                        else:
+                            print(f"No activation conditions found for constraint {constraint_id}.")
                         # Display the Shapley contributions for this constraint
-                        print(f"Shapley contributions towards violated case for constraint {constraint_id}:")
+                        print(f"\nShapley contributions towards violated cases for constraint {constraint_id}:")
                         for f, contribution in conformance_rate['shapley_contributions'].items():
                             print(f"  {f}: {round(contribution,2)}%")
+            # Also store integrated experience as csv file for further analysis
+            filename = f"integrated_analysis_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            with open(filename, mode='w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(['Constraint ID', 'Constraint', 'Conformance Rate', 'Activation Conditions', 'Shapley Contributions Toward Violated Cases'])
+                for constraint_id, conformance_rate in ranked_constraints:
+                    # We consider a conformance rate of less than 0.98 as a threshold for further analysis, so we will only write those constraints that have a conformance rate below this threshold.
+                    if conformance_rate['conformance_rate'] < 0.98:
+                        # find constraint from constraints list using constraint_id
+                        constraint = next((c for c in constraints if c['id'] == constraint_id), None)
+                        if constraint:
+                            activation_conditions = conformance_rate.get('activation_conditions', [])
+                            shapley_contributions = conformance_rate.get('shapley_contributions', {})
+                            constraint_format=""
+                            # Display each constraint in a desired format for csv report
+                            if constraint.get("type")=="Unary":
+                                constraint_format=f"{constraint['template']}({{{', '.join(constraint['activity'])}}}) "
+                            else:
+                                constraint_format=f"{constraint['template']}({{{', '.join(constraint['source'])}}}, {{{', '.join(constraint['target'])}}}) "
+                            writer.writerow([
+                                constraint_id,
+                                constraint_format,
+                                round(conformance_rate['conformance_rate'],4),
+                                "; ".join(activation_conditions),
+                                "; ".join([f"{f}: {round(contribution,2)}%" for f, contribution in shapley_contributions.items()])
+                            ])
+                writer.writerow([])  # Add an empty row for better readability
+                writer.writerow(['Note: Only constraints with conformance rate less than 0.98 are included in this report.'])
+                print(f"Integrated analysis experience is exported as {filename}.")
     else:
         print("Wrong option selected.") # Not possible to reach here because of the input validation in driver.py
 

@@ -261,4 +261,56 @@ def build_decision_trees_function(constraint_id,prepared_df):
     # Also export as PNG
     #dot.render("try-balanced-cases-random", format="png", cleanup=True)
     #print("Visualization saved as 'try-balanced-cases-random.png'")
+    # Extract the  each unique path from the root node to the leaf node where label is "Satisfied" and then return it as the activation condition
+    def collect_satisfied_paths(node, path, results):
+        if node.is_leaf:
+            if node.label == "Satisfied":
+                results.append(list(path))
+            return
 
+        for edge_label, child in node.children.items():
+            next_path = path + [(node.attribute, edge_label)]
+            collect_satisfied_paths(child, next_path, results)
+
+    satisfied_paths = []
+    collect_satisfied_paths(root, [], satisfied_paths)
+
+    unique_paths = []
+    seen_paths = set()
+    for path in satisfied_paths:
+        normalized_path = tuple(path)
+        if normalized_path not in seen_paths:
+            seen_paths.add(normalized_path)
+            unique_paths.append(normalized_path)
+
+    def format_path_as_condition(path):
+        conditions = []
+        for attribute, edge_label in path:
+            if attribute is None:
+                continue
+
+            if str(edge_label).startswith("<="):
+                conditions.append(f"{attribute} <= {edge_label[2:]}")
+            elif str(edge_label).startswith(">"):
+                conditions.append(f"{attribute} > {edge_label[1:]}")
+            else:
+                value_repr = repr(edge_label) if isinstance(edge_label, str) else str(edge_label)
+                conditions.append(f"{attribute} == {value_repr}")
+
+        return " AND ".join(conditions) if conditions else "root"
+
+    activation_conditions = [format_path_as_condition(path) for path in unique_paths]
+
+    """if activation_conditions:
+        print(f"\nActivation conditions ({len(activation_conditions)}):")
+        # Add a counter to enumerate the activation conditions for better readability
+        for idx, condition in enumerate(activation_conditions, start=1):
+            print(f"{idx}. {condition}")
+        #for condition in activation_conditions:
+            #print(f" - {condition}")
+    else:
+        activation_conditions = [f"No satisfied leaf found for constraint {constraint_id}"]"""
+
+    # Return the activation conditions for further use in the conformance analysis
+    return activation_conditions
+    
