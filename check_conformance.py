@@ -1,9 +1,12 @@
+
 import csv
 from datetime import datetime
 import pandas as pd
+from collections import defaultdict
 from find_shapley_values import conditional_shapley_with_binning
 from build_decision_trees import build_decision_trees_function
-#------------------------------
+from drop_irrelevant_attributes import drop_irrelevant_columns_hardcoded,drop_irrelevant_columns_logically 
+#---------------------------------------------
 def has_alternate_precedence(events, A_list, B_list):
     """Return True if the trace satisfies AlternatePrecedence(A,B).
 
@@ -28,7 +31,7 @@ def has_alternate_precedence(events, A_list, B_list):
             last_relevant = "B"
 
     return has_b
-#------------------------------
+#---------------------------------------------
 def has_at_most_one(events, A_list):
     """Return True if the trace satisfies AtMostOne(A).
 
@@ -47,10 +50,66 @@ def has_end(events, A_list):
     - The last event in the trace must be an event in A_list.
     """
     return events[-1] in A_list if events else False
+#---------------------------------------------
+# Display activation conditions for better readability 
+def build_format_activation_conditions(conditions):
+    tree = lambda: defaultdict(tree)
+    root = tree()
+
+    for condition in conditions:
+        parts = condition.split(" AND ")
+        node = root
+
+        for part in parts:
+            node = node[part]
+
+    return root
+#---------------------------------------------
+def to_roman(num):
+    values = [
+        (1000, "m"), (900, "cm"), (500, "d"), (400, "cd"),
+        (100, "c"), (90, "xc"), (50, "l"), (40, "xl"),
+        (10, "x"), (9, "ix"), (5, "v"), (4, "iv"), (1, "i")
+    ]
+
+    result = ""
+    for value, symbol in values:
+        while num >= value:
+            result += symbol
+            num -= value
+
+    return result
+#---------------------------------------------
+def print_format_activation_conditions(node, level=0):
+    for idx, (key, child) in enumerate(node.items(), start=1):
+        indent = "    " * level
+
+        if level == 0:
+            print(f"\n{key}")
+        else:
+            print(f"{indent}{to_roman(idx)}. {key}")
+
+        print_format_activation_conditions(child, level + 1) 
+#---------------------------------------------
+def format_activation_conditions(node, level=0, lines=None):
+    if lines is None:
+        lines = []
+
+    for idx, (key, child) in enumerate(node.items(), start=1):
+        indent = "    " * level
+
+        if level == 0:
+            lines.append(f"{key}")
+        else:
+            lines.append(f"{indent}{to_roman(idx)}. {key}")
+
+        format_activation_conditions(child, level + 1, lines)
+
+    return lines
 #--------------------------------------------
 def check_conformance_function(event_logs, constraints,selected_option):
     
-    # selected_option is either '1' for a particular constraint analysis or '2' for integrated analysis of all constraints
+    # Selected_option is either '1' for a particular constraint analysis or '2' for integrated analysis of all constraints
     if selected_option == '1':
             # Assuming constraints is a single constraint dictionary when selected_option is '1'
             constraint = constraints
@@ -91,8 +150,7 @@ def check_conformance_function(event_logs, constraints,selected_option):
                 print("Dataframe shape:", df.shape)
 
                 # Drop some columns that are not relevant for the analysis
-                df = df.drop(columns=['concept:name', 'time:timestamp', 'case:concept:name','case:Item Category','User','case:GR-Based Inv. Verif.','case:Goods Receipt','case:Document Type','case:Name','case:Vendor','case:Source','org:resource','case:Purch. Doc. Category name','case:Purchasing Document','case:Company'])
-
+                df= drop_irrelevant_columns_hardcoded(df)
                 
                 # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
                 shap_values = conditional_shapley_with_binning(df)
@@ -116,7 +174,6 @@ def check_conformance_function(event_logs, constraints,selected_option):
                     print("Not enough cases to build a decision tree. Skipping decision tree building.")
                     return
             
-
                 # Balance the dataset by taking all "Violated" cases and an equal number of "Satisfied" cases
                 df_violated = df[df["Outcome"] == "Violated"]
                 # If there are more "Satisfied" cases than "Violated" cases, sample an equal number of "Satisfied" cases
@@ -151,10 +208,15 @@ def check_conformance_function(event_logs, constraints,selected_option):
                 if activation_conditions:
                     print(f"\nActivation conditions ({len(activation_conditions)}):")
                     # Add a counter to enumerate the activation conditions for better readability
-                    for idx, condition in enumerate(activation_conditions, start=1):
-                        print(f"{idx}. {condition}")
+                    #for idx, condition in enumerate(activation_conditions, start=1):
+                        #print(f"{idx}. {condition}")
+                    # Display activation conditions for better readability 
+                    build_format = build_format_activation_conditions(activation_conditions)
+                    print_format_activation_conditions(build_format)
                 else:
-                    activation_conditions = [f"No satisfied leaf found for constraint {constraint_id}"]
+                    activation_conditions = [f"No satisfied leaf found for constraint {constraint['id']}"]
+                    # Display the print message in case of no activation conditions.
+                    print(f"\nActivation conditions are not found for {constraint['id']}.")
 
             # In case of Unary constraints, we can have different templates like AtMostOne, End, etc. We will handle them accordingly.
             else:
@@ -190,9 +252,8 @@ def check_conformance_function(event_logs, constraints,selected_option):
                     )
                     print("Dataframe shape:", df.shape)
                     # Drop some columns that are not relevant for the analysis
-                    df = df.drop(columns=['concept:name', 'time:timestamp', 'case:concept:name','case:Item Category','User','case:GR-Based Inv. Verif.','case:Goods Receipt','case:Document Type','case:Name','case:Vendor','case:Source','org:resource','case:Purch. Doc. Category name','case:Purchasing Document','case:Company'])
-                    # Display the first few rows of the DataFrame to verify the structure before calculating Shapley values
-                
+                    df = drop_irrelevant_columns_hardcoded(df)
+                    
                     # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
                     shap_values = conditional_shapley_with_binning(df)
 
@@ -250,10 +311,15 @@ def check_conformance_function(event_logs, constraints,selected_option):
                     if activation_conditions:
                         print(f"\nActivation conditions ({len(activation_conditions)}):")
                         # Add a counter to enumerate the activation conditions for better readability
-                        for idx, condition in enumerate(activation_conditions, start=1):
-                            print(f"{idx}. {condition}")
+                        #for idx, condition in enumerate(activation_conditions, start=1):
+                            #print(f"{idx}. {condition}")
+                        # Display activation conditions for better readability 
+                        build_format = build_format_activation_conditions(activation_conditions)
+                        print_format_activation_conditions(build_format)    
                     else:
-                        activation_conditions = [f"No satisfied leaf found for constraint {constraint_id}"]
+                        activation_conditions = [f"No satisfied leaf found for constraint {constraint['id']}"]
+                        # Display the print message in case of no activation conditions.
+                        print(f"\nActivation conditions are not found for {constraint['id']}.")
                 
                 else:
                     print(f"Calculating Shapley value for {constraint['template']} constraint...")
@@ -280,9 +346,8 @@ def check_conformance_function(event_logs, constraints,selected_option):
                     
                     print("Dataframe shape:", df.shape)
 
-                    # Drop some columns that are not relevant for the analysis
-                    df = df.drop(columns=['concept:name', 'time:timestamp', 'case:concept:name','case:Item Category','User','case:GR-Based Inv. Verif.','case:Goods Receipt','case:Document Type','case:Name','case:Vendor','case:Source','org:resource','case:Purch. Doc. Category name','case:Purchasing Document','case:Company'])    
-                
+                    # Drop some columns that are not relevant for the analysis    
+                    df = drop_irrelevant_columns_hardcoded(df)
 
                     # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
                     shap_values = conditional_shapley_with_binning(df)
@@ -341,14 +406,19 @@ def check_conformance_function(event_logs, constraints,selected_option):
                     if activation_conditions:
                         print(f"\nActivation conditions ({len(activation_conditions)}):")
                         # Add a counter to enumerate the activation conditions for better readability
-                        for idx, condition in enumerate(activation_conditions, start=1):
-                            print(f"{idx}. {condition}")
+                        #for idx, condition in enumerate(activation_conditions, start=1):
+                            #print(f"{idx}. {condition}")
+                        # Display activation conditions for better readability 
+                        build_format = build_format_activation_conditions(activation_conditions)
+                        print_format_activation_conditions(build_format)
                     else:
-                        activation_conditions = [f"No satisfied leaf found for constraint {constraint_id}"]
+                        activation_conditions = [f"No satisfied leaf found for constraint {constraint['id']}"]
+                        # Display the print message in case of no activation conditions.
+                        print(f"\nActivation conditions are not found for {constraint['id']}.")
     
     elif selected_option == '2':
         print("\nIntegrated analysis experience on the most promising constraints is started.")
-        # Here we can add code to perform integrated analysis based on the most promising constraints 
+        # Perform integrated analysis based on the most promising constraints 
         conformance_results = {}  
         print("If conformance rate is less than 0.98, we will proceed to calculate Shapley values and build decision trees for that constraint, otherwise we will skip it.")
         for constraint in constraints:
@@ -397,8 +467,7 @@ def check_conformance_function(event_logs, constraints,selected_option):
                     print("Dataframe shape:", df.shape)
 
                     # Drop some columns that are not relevant for the analysis
-                    df = df.drop(columns=['concept:name', 'time:timestamp', 'case:concept:name','case:Item Category','User','case:GR-Based Inv. Verif.','case:Goods Receipt','case:Document Type','case:Name','case:Vendor','case:Source','org:resource','case:Purch. Doc. Category name','case:Purchasing Document','case:Company'])
-
+                    df = drop_irrelevant_columns_hardcoded(df)
                     
                     # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
                     shap_values = conditional_shapley_with_binning(df)
@@ -491,8 +560,7 @@ def check_conformance_function(event_logs, constraints,selected_option):
                         )
                         print("Dataframe shape:", df.shape)
                         # Drop some columns that are not relevant for the analysis
-                        df = df.drop(columns=['concept:name', 'time:timestamp', 'case:concept:name','case:Item Category','User','case:GR-Based Inv. Verif.','case:Goods Receipt','case:Document Type','case:Name','case:Vendor','case:Source','org:resource','case:Purch. Doc. Category name','case:Purchasing Document','case:Company'])
-                        # Display the first few rows of the DataFrame to verify the structure before calculating Shapley values
+                        df = drop_irrelevant_columns_hardcoded(df)
                     
                         # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
                         shap_values = conditional_shapley_with_binning(df)
@@ -574,8 +642,7 @@ def check_conformance_function(event_logs, constraints,selected_option):
                         print("Dataframe shape:", df.shape)
 
                         # Drop some columns that are not relevant for the analysis
-                        df = df.drop(columns=['concept:name', 'time:timestamp', 'case:concept:name','case:Item Category','User','case:GR-Based Inv. Verif.','case:Goods Receipt','case:Document Type','case:Name','case:Vendor','case:Source','org:resource','case:Purch. Doc. Category name','case:Purchasing Document','case:Company'])
-                        # Unique cases with case:concept:name           
+                        df = drop_irrelevant_columns_hardcoded(df)           
                     
                         # Now we have a DataFrame with only the Outcome column and the case identifier. We can proceed to calculate the Shapley values based on this DataFrame.
                         shap_values = conditional_shapley_with_binning(df)
@@ -635,15 +702,17 @@ def check_conformance_function(event_logs, constraints,selected_option):
                 constraint = next((c for c in constraints if c['id'] == constraint_id), None)
                 if constraint:
                     if constraint["type"] == "Binary":
-                        #print(f"{constraint_id}: {constraint['template']} (Source: {constraint['source']}, Target: {constraint['target']}): {round(conformance_rate,4)}")
                         # \033[1m {variable} \003[0m is used to make the text bold in the terminal output
                          print(f"{constraint_id}. {constraint['template']}({{{', '.join(constraint['source'])}}}, {{{', '.join(constraint['target'])}}}): \033[1m{round(conformance_rate['conformance_rate'],4)}\033[0m")
                          # Display the activation conditions for this constraint
                          activation_conditions = conformance_rate.get('activation_conditions', [])
                          if activation_conditions:
                             print(f"\nActivation conditions for constraint {constraint_id}:")
-                            for idx, condition in enumerate(activation_conditions, start=1):
-                                 print(f"{idx}. {condition}")
+                            #for idx, condition in enumerate(activation_conditions, start=1):
+                                 #print(f"{idx}. {condition}")
+                            # Display activation conditions for better readability 
+                            build_format = build_format_activation_conditions(activation_conditions)
+                            print_format_activation_conditions(build_format)
                          else:
                              print(f"No activation conditions found for constraint {constraint_id}.")
                          # Display the Shapley contributions for this constraint
@@ -652,14 +721,16 @@ def check_conformance_function(event_logs, constraints,selected_option):
                              print(f"  {f}: {round(contribution,2)}%")                                                
                     else:
                         # For Unary constraints, we can have different templates like AtMostOne, End, etc. We will handle them accordingly.
-                        #print(f"{constraint_id}: {constraint['template']} (Activity: {constraint['activity']}): {round(conformance_rate,4)}")
                         print(f"{constraint['id']}. {constraint['template']}({{{', '.join(constraint['activity'])}}}): \033[1m{round(conformance_rate['conformance_rate'],4)}\033[0m")
                         # Display the activation conditions for this constraint
                         activation_conditions = conformance_rate.get('activation_conditions', [])
                         if activation_conditions:
                             print(f"\nActivation conditions for constraint {constraint_id}:")
-                            for idx, condition in enumerate(activation_conditions, start=1):
-                                print(f"{idx}. {condition}")
+                            #for idx, condition in enumerate(activation_conditions, start=1):
+                                #print(f"{idx}. {condition}")
+                            # Display activation conditions for better readability 
+                            build_format = build_format_activation_conditions(activation_conditions)
+                            print_format_activation_conditions(build_format)
                         else:
                             print(f"No activation conditions found for constraint {constraint_id}.")
                         # Display the Shapley contributions for this constraint
@@ -670,14 +741,17 @@ def check_conformance_function(event_logs, constraints,selected_option):
             filename = f"integrated_analysis_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
             with open(filename, mode='w', newline='') as file:
                 writer = csv.writer(file)
-                writer.writerow(['Constraint ID', 'Constraint', 'Conformance Rate', 'Activation Conditions', 'Shapley Contributions Toward Violated Cases'])
+                writer.writerow(['Constraint ID', 'Constraint', 'Conformance Rate', 'Activation Conditions', 'Shapley Contributions Towards Violated Cases'])
                 for constraint_id, conformance_rate in ranked_constraints:
                     # We consider a conformance rate of less than 0.98 as a threshold for further analysis, so we will only write those constraints that have a conformance rate below this threshold.
                     if conformance_rate['conformance_rate'] < 0.98:
                         # find constraint from constraints list using constraint_id
                         constraint = next((c for c in constraints if c['id'] == constraint_id), None)
                         if constraint:
+                            # Display activation conditions for better readability
                             activation_conditions = conformance_rate.get('activation_conditions', [])
+                            build_format = build_format_activation_conditions(activation_conditions)
+                            activation_output = format_activation_conditions(build_format)
                             shapley_contributions = conformance_rate.get('shapley_contributions', {})
                             constraint_format=""
                             # Display each constraint in a desired format for csv report
@@ -689,7 +763,8 @@ def check_conformance_function(event_logs, constraints,selected_option):
                                 constraint_id,
                                 constraint_format,
                                 round(conformance_rate['conformance_rate'],4),
-                                "; ".join(activation_conditions),
+                                #"; ".join(activation_conditions), # all activation conditions based on unique paths
+                                "\n".join(activation_output),     # all activation conditions based on the group for better readability
                                 "; ".join([f"{f}: {round(contribution,2)}%" for f, contribution in shapley_contributions.items()])
                             ])
                 writer.writerow([])  # Add an empty row for better readability

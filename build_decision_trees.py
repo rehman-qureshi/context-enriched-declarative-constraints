@@ -1,22 +1,13 @@
-# I use this file to build a complete decision tree..
-
-#Yes, we can extend the code to handle a dataset with any number of attributes 
-#(categorical or numeric) and a binary outcome label ("Yes" or "No"). The generalized version 
-#loads data from a CSV file (assuming the last column is the label), computes root entropy, 
-#and calculates information gain for each attribute:
-#For categorical attributes: Splits on unique values and computes IG.
-#For numeric attributes: Finds the best threshold by testing midpoints between sorted unique
-#values
+# Use this file to build a complete decision tree
 
 # Decision Tree Entropy & Information Gain Computation
-# Generalized for datasets with n attributes and Yes/No outcome labels
+# Generalized for datasets with n attributes and Satisfied/Violated outcome labels
 # Extended to build full decision tree with recursive branch node calculations
 # Added Graphviz visualization
 
 import math
 import pandas as pd
-from collections import Counter, defaultdict
-import matplotlib.pyplot as plt
+from collections import Counter
 from graphviz import Digraph
 import html
 
@@ -33,7 +24,7 @@ def entropy(labels):
         p = c / total
         ent -= p * math.log2(p)
     return ent
-
+# -----------------------------
 def information_gain(parent_labels, subsets):
     """Compute information gain given parent labels and subsets"""
     parent_entropy = entropy(parent_labels)
@@ -44,23 +35,9 @@ def information_gain(parent_labels, subsets):
     for subset in subsets:
         weighted_entropy += (len(subset) / total) * entropy(subset)
     return parent_entropy - weighted_entropy
-
-#------------------------------
-def safe_text(x):
-    """Robust sanitizer for XES + CSV mixed data"""
-    if x is None:
-        return "UNKNOWN"
-
-    x = str(x).strip()
-
-    if x == "" or x.lower() in ["nan", "none"]:
-        return "UNKNOWN"
-
-    return html.escape(x)
 # -----------------------------
 # Decision Tree Node Class
 # -----------------------------
-
 class Node:
     _node_counter = 0  # Class variable for unique node IDs
     
@@ -160,10 +137,6 @@ class Node:
         # If violated then fill with red color, if satisfied then fill with green color
         prefix = "  " * indent
         if self.is_leaf:
-            #if self.label == "Satisfied":
-                #print(f"{prefix}\033[92mLeaf: {self.label} (samples={self.samples}, entropy={round(self.entropy, 4)})\033[0m")
-            #elif self.label == "Violated":
-                #print(f"{prefix}\033[91mLeaf: {self.label} (samples={self.samples}, entropy={round(self.entropy, 4)})\033[0m")
             print(f"{prefix}Leaf: {self.label} (samples={self.samples}, entropy={round(self.entropy, 4)})")
         else:
             print(f"{prefix}Node: {self.attribute} (samples={self.samples}, entropy={round(self.entropy, 4)})")
@@ -217,73 +190,17 @@ class Node:
             dot.edge(str(self.node_id), str(child.node_id), label=edge_label_transform, fontsize="100")
             child.build_graphviz(dot)
 #------------------------------
-def build_decision_trees_function(constraint_id,prepared_df):
-    """
-    This function builds decision trees based on the event logs and constraints.
-    """
-    print("Building decision trees based on event logs and constraints...")
-    # Placeholder for decision tree building logic
-    attributes = prepared_df.columns[:-1] # All columns except the last one
-    labels = prepared_df.iloc[:, -1].tolist()
-    print("Total cases:", len(labels))
-    print("Class distribution:", Counter(labels))
-    print("Root Entropy H(S):", round(entropy(labels), 4))
-    # -----------------------------
-    # Build Decision Tree
-    # -----------------------------
-    
-    print("\nBuilding Decision Tree, please wait...")
-    root = Node(prepared_df, attributes, max_depth=5, min_samples=10)  # Adjust parameters as needed
+def collect_satisfied_paths(node, path, results):
+    if node.is_leaf:
+        if node.label == "Satisfied":
+            results.append(list(path))
+        return
 
-    print("\nDecision Tree Structure:")
-    root.print_tree()
-
-    # -----------------------------
-    # Visualize Decision Tree with Graphviz
-    # -----------------------------
-
-    print("\nGenerating Graphviz visualization...")
-    dot = Digraph(
-        comment="Decision Tree",
-        format="svg"  # change to "png" if you prefer
-    )
-    dot.attr(rankdir="TB", size="100,100") # Set larger size for better readability
-    #dot.attr(fontsize="50")  # Adjust font size for better readability
-
-    root.build_graphviz(dot)
-
-    # Export locally
-    #dot.render("try-balanced-cases-random", cleanup=True)
-    #print("Visualization saved as 'try-balanced-cases-random.svg'")
-    # Also export as PDF
-    dot.render(f"{constraint_id}-decision-tree", format="pdf", cleanup=True)
-    print(f"Visualization saved as '{constraint_id}-decision-tree.pdf'")
-    # Also export as PNG
-    #dot.render("try-balanced-cases-random", format="png", cleanup=True)
-    #print("Visualization saved as 'try-balanced-cases-random.png'")
-    # Extract the  each unique path from the root node to the leaf node where label is "Satisfied" and then return it as the activation condition
-    def collect_satisfied_paths(node, path, results):
-        if node.is_leaf:
-            if node.label == "Satisfied":
-                results.append(list(path))
-            return
-
-        for edge_label, child in node.children.items():
-            next_path = path + [(node.attribute, edge_label)]
-            collect_satisfied_paths(child, next_path, results)
-
-    satisfied_paths = []
-    collect_satisfied_paths(root, [], satisfied_paths)
-
-    unique_paths = []
-    seen_paths = set()
-    for path in satisfied_paths:
-        normalized_path = tuple(path)
-        if normalized_path not in seen_paths:
-            seen_paths.add(normalized_path)
-            unique_paths.append(normalized_path)
-
-    def format_path_as_condition(path):
+    for edge_label, child in node.children.items():
+        next_path = path + [(node.attribute, edge_label)]
+        collect_satisfied_paths(child, next_path, results)
+#---------------------------------------------------------
+def format_path_as_condition(path):
         conditions = []
         for attribute, edge_label in path:
             if attribute is None:
@@ -298,9 +215,52 @@ def build_decision_trees_function(constraint_id,prepared_df):
                 conditions.append(f"{attribute} == {value_repr}")
 
         return " AND ".join(conditions) if conditions else "root"
+#------------------------------
+def build_decision_trees_function(constraint_id,prepared_df):
+    
+    print("Building decision trees based on event logs and constraints...")
+    # Placeholder for decision tree building logic
+    attributes = prepared_df.columns[:-1] # All columns except the last one
+    labels = prepared_df.iloc[:, -1].tolist()
+    print("Total cases:", len(labels))
+    print("Class distribution:", Counter(labels))
+    print("Root Entropy H(S):", round(entropy(labels), 4))
+    # Build Decision Tree
+    print("\nBuilding Decision Tree, please wait...")
+    root = Node(prepared_df, attributes, max_depth=5, min_samples=10)  # Adjust parameters as needed
+
+    print("\nDecision Tree Structure:")
+    root.print_tree()
+
+    # Visualize Decision Tree with Graphviz
+    print("\nGenerating Graphviz visualization...")
+    dot = Digraph(
+        comment="Decision Tree",
+        format="svg"  # change to "png" if you prefer
+    )
+    dot.attr(rankdir="TB", size="100,100") # Set larger size for better readability
+    #dot.attr(fontsize="50")  # Adjust font size for better readability
+
+    root.build_graphviz(dot)
+
+    # Export locally as PDF
+    dot.render(f"{constraint_id}-decision-tree", format="pdf", cleanup=True)
+    print(f"Visualization saved as '{constraint_id}-decision-tree.pdf'")
+    
+    # Extract the  each unique path from the root node to the leaf node where label is "Satisfied" and then return it as the activation condition
+    satisfied_paths = []
+    collect_satisfied_paths(root, [], satisfied_paths)
+
+    unique_paths = []
+    seen_paths = set()
+    for path in satisfied_paths:
+        normalized_path = tuple(path)
+        if normalized_path not in seen_paths:
+            seen_paths.add(normalized_path)
+            unique_paths.append(normalized_path)
 
     activation_conditions = [format_path_as_condition(path) for path in unique_paths]
 
     # Return the activation conditions for further use in the conformance analysis
     return activation_conditions
-    
+#------------------------------------    

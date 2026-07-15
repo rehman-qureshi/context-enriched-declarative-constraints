@@ -1,8 +1,9 @@
-import random
+
 import math
 import itertools
 import pandas as pd
 #------------------------------
+# Computing Shapley values towards the violated cases.
 def conditional_shapley_with_binning(
     df,
     target_col="Outcome",
@@ -22,8 +23,6 @@ def conditional_shapley_with_binning(
             #new_col = col + "_bin"
             new_col = col
             df[new_col] = pd.qcut(df[col], q=num_bins, duplicates="drop")
-            #print(f"Binned column {col} into {num_bins} bins as {new_col}")
-            #print(df[[col, new_col]].head())
             binned_features.append(new_col)
         else:
             binned_features.append(col)
