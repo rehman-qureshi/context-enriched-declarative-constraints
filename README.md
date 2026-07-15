@@ -23,7 +23,7 @@ This repository implements a Python workflow for analyzing declarative process c
 
 - [driver.py](driver.py) – Entry point. Loads the data, lists the available constraints, and prompts the user to choose an analysis mode.
 - [load_data.py](load_data.py) – Loads event logs and declarative constraints from the repository inputs.
-- [drop_irrelevant_attributes.py](drop_irrelevant_attributes.py) – Drop irrelevant attributes of events for the analysis.
+- [drop_irrelevant_attributes.py](drop_irrelevant_attributes.py) – Drop irrelevant attributes from event logs for the analysis.
 - [check_conformance.py](check_conformance.py) – Evaluates the selected constraint(s) and prepares the analysis dataset.
 - [find_shapley_values.py](find_shapley_values.py) – Computes conditional Shapley values for the selected features.
 - [build_decision_trees.py](build_decision_trees.py) – Builds decision trees, extracts activation conditions, and exports visualizations.
